@@ -1,7 +1,9 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { CreateOrderDto } from './dto/create-order.dto';
-import { UpdateOrderDto } from './dto/update-order.dto';
+import { HttpStatus, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { RpcException } from '@nestjs/microservices';
 import { PrismaClient } from '@prisma/client';
+
+import { CreateOrderDto } from './dto/create-order.dto';
+import { OrderPaginationDto } from './dto';
 
 @Injectable()
 export class OrdersService extends PrismaClient implements OnModuleInit {
@@ -12,22 +14,38 @@ export class OrdersService extends PrismaClient implements OnModuleInit {
   }
 
   create(createOrderDto: CreateOrderDto) {
-    return createOrderDto;
+    return this.order.create({ data: createOrderDto });
   }
 
-  findAll() {
-    return `This action returns all orders`;
+  async findAll({ limit, page, status }: OrderPaginationDto) {
+    const totalItems = await this.order.count({ where: { status } });
+    const lastPage = Math.ceil(totalItems / limit);
+    return {
+      data: await this.order.findMany({
+        skip: (page - 1) * limit,
+        take: limit,
+        where: { status },
+      }),
+      meta: {
+        total: totalItems,
+        page,
+        lastPage,
+      },
+    };
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} order`;
-  }
+  async findOne(id: string) {
+    const order = await this.order.findFirst({
+      where: { id },
+    });
 
-  update(id: number, updateOrderDto: UpdateOrderDto) {
-    return `This action updates a #${id} order`;
-  }
+    if (!order) {
+      throw new RpcException({
+        message: `Product whith #${id} not found`,
+        status: HttpStatus.NOT_FOUND,
+      });
+    }
 
-  remove(id: number) {
-    return `This action removes a #${id} order`;
+    return order;
   }
 }

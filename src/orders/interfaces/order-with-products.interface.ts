@@ -14,5 +14,5 @@ export interface OrderWithProducts {
   paid: boolean;
   paidAt: Date;
   createdAt: Date;
-  updateAt: Date;
+  updatedAt: Date;
 }
